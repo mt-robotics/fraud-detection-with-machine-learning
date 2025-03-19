@@ -1,0 +1,103 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+.env/
+.venv/
+
+# IDEs and editors
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+.ipynb_checkpoints
+
+# Local environment variables
+.env
+
+# Data
+data/raw/*.csv
+data/raw/*.parquet
+data/raw/*.h5
+data/raw/*.feather
+data/raw/*.sqlite
+data/raw/*.db
+data/raw/*.json
+
+# Models
+models/*.joblib
+models/*.h5
+models/*.pkl
+models/*.pth
+models/*.onnx
+models/*.tflite
+models/*.pb
+models/*.png
+models/*_shap_*.png
+models/*_top_features.txt
+models/*_confusion_matrix.png
+models/*_roc_curve.png
+models/*_precision_recall_curve.png
+
+# Processed data
+data/processed/*.npy
+data/processed/*.pkl
+data/processed/*.csv
+
+# Logs
+logs/*.log
+logs/*.txt
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Exclude these directories but keep their structure with .gitkeep
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!models/.gitkeep
+!logs/.gitkeep
+
+# Include README files
+!data/raw/README.md
+!data/processed/README.md
+!models/README.md
+!logs/README.md
