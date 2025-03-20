@@ -2,7 +2,7 @@
 
 from pathlib import Path
 import os
-from dotenv import load_dotenv, dotenv_values
+from dotenv import load_dotenv  # , dotenv_values
 
 # Base paths - defined early so we can use it for env file path
 BASE_DIR = Path(__file__).parent.parent
@@ -10,24 +10,21 @@ BASE_DIR = Path(__file__).parent.parent
 # Load environment variables
 env = os.getenv("ENV", "development")  # Default to development
 env_file = BASE_DIR / f".env.{env}"  # Path to a specific .env file
-print(f"Loading environment: {env} from {env_file}")
+# print(f"Loading environment: {env} from {env_file}")
 
-if not env_file.exists():
-    print(f"Error: {env_file} does not exist!")
-else:
-    print(f"{env_file} exists. Loading...")
-    load_dotenv(dotenv_path=env_file)  # Explicitly specify dotenv_path parameter
+load_dotenv(dotenv_path=env_file)
 
-# # Print all environment variables for debugging
-# print("Loaded environment variables:")
-# for key, value in os.environ.items():
+# if not env_file.exists():
+#     print(f"Error: {env_file} does not exist!")
+# else:
+#     print(f"{env_file} exists. Loading...")
+# load_dotenv(dotenv_path=env_file)  # Explicitly specify dotenv_path parameter
+
+# # Print only the variables from the .env file
+# env_vars = dotenv_values(dotenv_path=env_file)
+# print("Variables loaded from .env file:")
+# for key, value in env_vars.items():
 #     print(f"{key}: {value}")
-
-# Print only the variables from the .env file
-env_vars = dotenv_values(dotenv_path=env_file)
-print("Variables loaded from .env file:")
-for key, value in env_vars.items():
-    print(f"{key}: {value}")
 
 # Define other path directories based on BASE_DIR
 DATA_DIR = BASE_DIR / "data"
@@ -45,6 +42,19 @@ RANDOM_STATE = 42
 TEST_SIZE = 0.2
 TARGET_COLUMN = "Class"
 
+LOGISTIC_REGRESSION_PARAMS = {"solver": "lbfgs", "max_iter": 100, "random_state": 42}
+
+RANDOM_FOREST_PARAMS = {"n_estimators": 50, "max_depth": 10, "random_state": 42, "n_jobs": -1}
+
+XGBOOST_PARAMS = {
+    "n_estimators": 100,
+    "learning_rate": 0.1,
+    "max_depth": 6,
+    "random_state": 42,
+    "n_jobs": -1,
+    "tree_method": "hist",  # Faster algorithm
+}
+
 # Logging settings
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 LOG_FORMAT = os.getenv(
@@ -52,6 +62,6 @@ LOG_FORMAT = os.getenv(
     "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
 )
 
-# Print LOG_LEVEL to verify
-print(f"\nLOG_LEVEL: {LOG_LEVEL}")
-print(f"\nEnvironment currently active: {env}")
+# # Print LOG_LEVEL to verify
+# print(f"\nLOG_LEVEL: {LOG_LEVEL}")
+# print(f"\nEnvironment currently active: {env}")
