@@ -39,6 +39,7 @@ env/
 
 # Local environment variables
 .env
+.env.*
 
 # Data
 data/raw/*.csv
