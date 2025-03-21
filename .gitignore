@@ -23,7 +23,7 @@ wheels/
 *.egg
 
 # Virtual environments
-venv/
+venv*/
 ENV/
 env/
 .env/
@@ -40,6 +40,8 @@ env/
 # Local environment variables
 .env
 .env.*
+!.env.example
+!.env.specific_env.example
 
 # Data
 data/raw/*.csv

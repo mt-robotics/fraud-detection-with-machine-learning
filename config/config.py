@@ -42,9 +42,27 @@ RANDOM_STATE = 42
 TEST_SIZE = 0.2
 TARGET_COLUMN = "Class"
 
-LOGISTIC_REGRESSION_PARAMS = {"solver": "lbfgs", "max_iter": 100, "random_state": 42}
+# Business cost ratio - higher values give more weight to false negatives (missed fraud)
+# Adjust based on business requirements
+BUSINESS_COST_RATIO = 5.0  
 
-RANDOM_FOREST_PARAMS = {"n_estimators": 50, "max_depth": 10, "random_state": 42, "n_jobs": -1}
+# Primary metric for model selection - options: "f1", "auc_roc", "business_metric", "avg_precision"
+PRIMARY_METRIC = "f1"  
+
+LOGISTIC_REGRESSION_PARAMS = {
+    "solver": "saga",  # Faster solver that supports all penalties
+    "max_iter": 100, 
+    "random_state": 42,
+    "n_jobs": -1,     # Parallel processing
+}
+
+RANDOM_FOREST_PARAMS = {
+    "n_estimators": 50, 
+    "max_depth": 10, 
+    "random_state": 42, 
+    "n_jobs": -1,
+    "criterion": "entropy",  # Try entropy instead of gini
+}
 
 XGBOOST_PARAMS = {
     "n_estimators": 100,
@@ -52,7 +70,9 @@ XGBOOST_PARAMS = {
     "max_depth": 6,
     "random_state": 42,
     "n_jobs": -1,
-    "tree_method": "hist",  # Faster algorithm
+    "tree_method": "hist",  # Faster histogram-based algorithm
+    "subsample": 0.9,        # Slight subsampling for faster training
+    "colsample_bytree": 0.9, # Slight feature subsampling for faster training
 }
 
 # Logging settings
