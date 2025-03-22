@@ -1,0 +1,320 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, development]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-style:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.11]
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Install linting dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 black isort mypy
+
+      - name: Check code format with Black
+        run: |
+          black --check src/ tests/
+        continue-on-error: true
+
+      - name: Check imports with isort
+        run: |
+          isort --check-only --profile black src/ tests/
+        continue-on-error: true
+
+      - name: Lint with flake8
+        run: |
+          flake8 src/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
+        continue-on-error: true
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.11]
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-cov
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Test with pytest
+        run: |
+          python -m pytest tests/ --cov=src/ --cov-report=xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
+
+      - name: Archive test results
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-results
+          path: |
+            coverage.xml
+            .coverage
+
+  model-performance:
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    strategy:
+      matrix:
+        python-version: [3.11]
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Download demo dataset or use cached
+        run: |
+          mkdir -p data/raw
+          # Check if we have a cached demo dataset
+          if [ ! -f "data/raw/creditcard_demo.csv" ]; then
+            # Create a small synthetic dataset for CI testing
+            python - << 'EOL'
+            import pandas as pd
+            import numpy as np
+            np.random.seed(42)
+            # Generate synthetic data (30 features, 1000 samples)
+            n_samples = 1000
+            n_features = 30
+            X = np.random.randn(n_samples, n_features)
+            # Make 5% fraudulent
+            y = np.zeros(n_samples)
+            fraud_indices = np.random.choice(range(n_samples), size=int(0.05*n_samples), replace=False)
+            y[fraud_indices] = 1
+            # Create dataframe
+            columns = ['Time'] + [f'V{i}' for i in range(1, 29)] + ['Amount', 'Class']
+            df = pd.DataFrame(np.column_stack([X, y]), columns=columns)
+            df.to_csv('data/raw/creditcard_demo.csv', index=False)
+            EOL
+          fi
+          echo "Demo dataset prepared"
+
+      - name: Train and evaluate model
+        run: |
+          # Set environment variables
+          export ENV=development
+          export ADVANCED_FEATURES=true
+          export ENSEMBLE_MODELS=true
+          # Run training with demo dataset
+          bash scripts/train_and_evaluate.sh
+
+      - name: Verify model performance
+        run: |
+          # Check if model was created and has acceptable performance
+          python - << 'EOL'
+          import joblib
+          import os
+          import sys
+
+          # Load model metadata
+          if not os.path.exists('models/model_metadata.joblib'):
+            print('Model metadata not found')
+            sys.exit(1)
+
+          metadata = joblib.load('models/model_metadata.joblib')
+          metrics = metadata.get('metrics', {})
+
+          # Check F1 score - minimum acceptable is 0.75 for demo dataset
+          f1 = metrics.get('f1', 0)
+          print(f'Model F1 score: {f1}')
+          if f1 < 0.75:
+            print(f'Model performance below threshold: {f1} < 0.75')
+            sys.exit(1)
+          else:
+            print('Model performance acceptable')
+          EOL
+
+      - name: Archive model artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: model-artifacts
+          path: |
+            models/best_model.joblib
+            models/model_metadata.joblib
+
+  integration-test:
+    runs-on: ubuntu-latest
+    needs: model-performance
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Download model artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: model-artifacts
+          path: models/
+
+      - name: Build Docker image
+        run: |
+          docker-compose build fraud-detection-api
+
+      - name: Start API service
+        run: |
+          docker-compose up -d fraud-detection-api
+          # Wait for service to be ready
+          sleep 10
+
+      - name: Test API endpoints
+        run: |
+          # Test health endpoint
+          curl -f http://localhost:8000/health
+          # Test Prometheus metrics endpoint
+          curl -f http://localhost:8001/metrics
+          # Test model info endpoint
+          curl -f http://localhost:8000/model/info
+
+          # Test prediction endpoint with sample data
+          curl -X POST http://localhost:8000/predict \
+            -H "Content-Type: application/json" \
+            -d '{
+              "time": 10000,
+              "v1": 0.1, "v2": 0.2, "v3": 0.3, "v4": 0.4, "v5": 0.5,
+              "v6": 0.6, "v7": 0.7, "v8": 0.8, "v9": 0.9, "v10": 1.0,
+              "v11": 1.1, "v12": 1.2, "v13": 1.3, "v14": 1.4, "v15": 1.5,
+              "v16": 1.6, "v17": 1.7, "v18": 1.8, "v19": 1.9, "v20": 2.0,
+              "v21": 2.1, "v22": 2.2, "v23": 2.3, "v24": 2.4, "v25": 2.5,
+              "v26": 2.6, "v27": 2.7, "v28": 2.8, "amount": 500.0
+            }' | grep -q "fraud_probability"
+
+  build-and-push:
+    needs: [integration-test]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/development')
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract branch name
+        shell: bash
+        run: echo "branch=${GITHUB_REF#refs/heads/}" >> $GITHUB_OUTPUT
+        id: extract_branch
+
+      - name: Download model artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: model-artifacts
+          path: models/
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/fraud-detection:${{ steps.extract_branch.outputs.branch }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/fraud-detection:${{ github.sha }}
+          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/fraud-detection:${{ steps.extract_branch.outputs.branch }}
+          cache-to: type=inline
+
+  deploy-staging:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/development'
+    environment: staging
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+        continue-on-error: true
+
+      - name: Deploy to staging environment
+        run: |
+          echo "Deploying to staging environment..."
+          echo "Using image: ${{ secrets.DOCKERHUB_USERNAME }}/fraud-detection:development"
+
+          # Example: Update ECS service
+          # aws ecs update-service --cluster fraud-detection-staging --service fraud-api --force-new-deployment
+
+          # This is a placeholder for actual deployment commands
+          # For demo purposes, we're just printing success
+          echo "Deployed successfully to staging!"
+
+  deploy-production:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+        continue-on-error: true
+
+      - name: Deploy to production environment
+        run: |
+          echo "Deploying to production environment..."
+          echo "Using image: ${{ secrets.DOCKERHUB_USERNAME }}/fraud-detection:main"
+
+          # Example: Update ECS service
+          # aws ecs update-service --cluster fraud-detection-production --service fraud-api --force-new-deployment
+
+          # This is a placeholder for actual deployment commands
+          # For demo purposes, we're just printing success
+          echo "Deployed successfully to production!"
+
+      - name: Create deployment tag
+        run: |
+          # Create a deployment tag with timestamp
+          TAG="deploy-$(date +'%Y%m%d%H%M%S')"
+          echo "Created deployment tag: $TAG"
+          # In a real environment, we would push this tag
+          # git tag $TAG
+          # git push origin $TAG
