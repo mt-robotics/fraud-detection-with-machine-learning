@@ -100,15 +100,16 @@ try:
         threshold = metadata.get("threshold", 0.5)
         model_name = metadata.get("model_name", "unknown")
         top_features = metadata.get("top_features", [])
-        feature_names = metadata.get(
+        # Ensure feature names are consistently lowercase
+        feature_names = [name.lower() for name in metadata.get(
             "feature_names", [f"v{i}" for i in range(1, 29)] + ["time", "amount"]
-        )
+        )]
     else:
         logger.warning("Model metadata not found, using default threshold and settings")
         threshold = 0.5
         model_name = "unknown"
         top_features = []
-        feature_names = [f"v{i}" for i in range(1, 29)] + ["time", "amount"]
+        feature_names = [f"v{i}" for i in range(1, 29)] + ["time", "amount"]  # Already lowercase
 
     logger.info(f"Successfully loaded {model_name} model from {model_path}")
     logger.info(f"Using classification threshold: {threshold}")
@@ -123,36 +124,43 @@ except Exception as e:
 class TransactionData(BaseModel):
     """Pydantic model for transaction data validation."""
 
-    time: float = Field(..., description="Time in seconds since start of day")
-    v1: float = Field(..., description="Anonymized PCA feature 1")
-    v2: float = Field(..., description="Anonymized PCA feature 2")
-    v3: float = Field(..., description="Anonymized PCA feature 3")
-    v4: float = Field(..., description="Anonymized PCA feature 4")
-    v5: float = Field(..., description="Anonymized PCA feature 5")
-    v6: float = Field(..., description="Anonymized PCA feature 6")
-    v7: float = Field(..., description="Anonymized PCA feature 7")
-    v8: float = Field(..., description="Anonymized PCA feature 8")
-    v9: float = Field(..., description="Anonymized PCA feature 9")
-    v10: float = Field(..., description="Anonymized PCA feature 10")
-    v11: float = Field(..., description="Anonymized PCA feature 11")
-    v12: float = Field(..., description="Anonymized PCA feature 12")
-    v13: float = Field(..., description="Anonymized PCA feature 13")
-    v14: float = Field(..., description="Anonymized PCA feature 14")
-    v15: float = Field(..., description="Anonymized PCA feature 15")
-    v16: float = Field(..., description="Anonymized PCA feature 16")
-    v17: float = Field(..., description="Anonymized PCA feature 17")
-    v18: float = Field(..., description="Anonymized PCA feature 18")
-    v19: float = Field(..., description="Anonymized PCA feature 19")
-    v20: float = Field(..., description="Anonymized PCA feature 20")
-    v21: float = Field(..., description="Anonymized PCA feature 21")
-    v22: float = Field(..., description="Anonymized PCA feature 22")
-    v23: float = Field(..., description="Anonymized PCA feature 23")
-    v24: float = Field(..., description="Anonymized PCA feature 24")
-    v25: float = Field(..., description="Anonymized PCA feature 25")
-    v26: float = Field(..., description="Anonymized PCA feature 26")
-    v27: float = Field(..., description="Anonymized PCA feature 27")
-    v28: float = Field(..., description="Anonymized PCA feature 28")
-    amount: float = Field(..., description="Transaction amount")
+    # Allow both lowercase and uppercase field names to support both formats
+    time: float = Field(..., description="Time in seconds since start of day", alias="Time")
+    v1: float = Field(..., description="Anonymized PCA feature 1", alias="V1")
+    v2: float = Field(..., description="Anonymized PCA feature 2", alias="V2")
+    v3: float = Field(..., description="Anonymized PCA feature 3", alias="V3")
+    v4: float = Field(..., description="Anonymized PCA feature 4", alias="V4")
+    v5: float = Field(..., description="Anonymized PCA feature 5", alias="V5")
+    v6: float = Field(..., description="Anonymized PCA feature 6", alias="V6")
+    v7: float = Field(..., description="Anonymized PCA feature 7", alias="V7")
+    v8: float = Field(..., description="Anonymized PCA feature 8", alias="V8")
+    v9: float = Field(..., description="Anonymized PCA feature 9", alias="V9")
+    v10: float = Field(..., description="Anonymized PCA feature 10", alias="V10")
+    v11: float = Field(..., description="Anonymized PCA feature 11", alias="V11")
+    v12: float = Field(..., description="Anonymized PCA feature 12", alias="V12")
+    v13: float = Field(..., description="Anonymized PCA feature 13", alias="V13")
+    v14: float = Field(..., description="Anonymized PCA feature 14", alias="V14")
+    v15: float = Field(..., description="Anonymized PCA feature 15", alias="V15")
+    v16: float = Field(..., description="Anonymized PCA feature 16", alias="V16")
+    v17: float = Field(..., description="Anonymized PCA feature 17", alias="V17")
+    v18: float = Field(..., description="Anonymized PCA feature 18", alias="V18")
+    v19: float = Field(..., description="Anonymized PCA feature 19", alias="V19")
+    v20: float = Field(..., description="Anonymized PCA feature 20", alias="V20")
+    v21: float = Field(..., description="Anonymized PCA feature 21", alias="V21")
+    v22: float = Field(..., description="Anonymized PCA feature 22", alias="V22")
+    v23: float = Field(..., description="Anonymized PCA feature 23", alias="V23")
+    v24: float = Field(..., description="Anonymized PCA feature 24", alias="V24")
+    v25: float = Field(..., description="Anonymized PCA feature 25", alias="V25")
+    v26: float = Field(..., description="Anonymized PCA feature 26", alias="V26")
+    v27: float = Field(..., description="Anonymized PCA feature 27", alias="V27")
+    v28: float = Field(..., description="Anonymized PCA feature 28", alias="V28")
+    amount: float = Field(..., description="Transaction amount", alias="Amount")
+    
+    # Configure the model to work with both lowercase and uppercase names
+    model_config = {
+        "populate_by_name": True,  # Allow population by field name in addition to alias
+        "extra": "ignore"          # Ignore any extra fields
+    }
 
     # Using modern Pydantic v2 field_validator
     @field_validator("amount")
@@ -222,11 +230,25 @@ async def predict(
         )
 
         # Convert input data to DataFrame using model_dump() (Pydantic v2 method)
-        data = pd.DataFrame([transaction.model_dump()])
-
+        data_dict = transaction.model_dump()
+        
+        # Create a DataFrame from the data dictionary
+        data = pd.DataFrame([data_dict])
+        
+        # Normalize column names to lowercase to match expected feature_names
+        data.columns = [col.lower() for col in data.columns]
+        
         # Ensure feature order matches what the model expects
         if feature_names and len(feature_names) == data.shape[1]:
             data = data[feature_names]
+        elif feature_names:
+            # If we have a mismatch, try to align the columns by name
+            try:
+                data = data.loc[:, [col.lower() for col in feature_names]]
+                logger.info(f"Realigned columns to match feature_names")
+            except KeyError as e:
+                logger.error(f"Column alignment failed: {str(e)} - Available columns: {data.columns.tolist()}")
+                raise ValueError(f"Input data columns do not match model's expected features: {str(e)}")
 
         # Log prediction request
         logger.info(
@@ -237,14 +259,25 @@ async def predict(
         start_time = datetime.now()
         try:
             # Safely extract and convert probability
-            with MODEL_PREDICTION_SUMMARY.time():
-                probabilities = model.predict_proba(data)
+            # Use a custom context for this operation to avoid MutexValue issues
+            # This avoids the synchronization problems with MODEL_PREDICTION_SUMMARY.time()
+            prediction_start = time.time()
+            probabilities = model.predict_proba(data)
+            prediction_duration = time.time() - prediction_start
+            
+            # Update metrics outside the model prediction
+            MODEL_PREDICTION_SUMMARY.observe(prediction_duration)
 
             if probabilities is None or len(probabilities) == 0:
                 raise ValueError("Model returned empty probability array")
 
             # Safely extract the probability value with proper error handling
             probability = convert_numpy_types(probabilities[0][1])
+            
+            # Convert to standard Python types to avoid any MutexValue issues
+            probability = float(probability)
+            classification_threshold = float(classification_threshold)
+            
             is_fraud = probability >= classification_threshold
             prediction_time = (datetime.now() - start_time).total_seconds()
 
@@ -254,15 +287,25 @@ async def predict(
 
             # Track running fraud ratio
             # We use a gauge as an approximate measure since we can't track all-time totals directly
-            if hasattr(FRAUD_RATIO, "_value") and FRAUD_RATIO._value is not None:
-                # Update ratio with exponential moving average
-                current_ratio = FRAUD_RATIO._value
-                alpha = 0.05  # Decay factor for EMA
-                new_ratio = alpha * (1 if is_fraud else 0) + (1 - alpha) * current_ratio
-                FRAUD_RATIO.set(new_ratio)
-            else:
-                # First observation
-                FRAUD_RATIO.set(1.0 if is_fraud else 0.0)
+            try:
+                # Use a safer approach for the fraud ratio that's resilient to concurrency issues
+                if hasattr(FRAUD_RATIO, "_value") and FRAUD_RATIO._value is not None:
+                    # Safely get the current value
+                    try:
+                        current_ratio = float(FRAUD_RATIO._value)
+                        alpha = 0.05  # Decay factor for EMA
+                        new_ratio = alpha * (1.0 if is_fraud else 0.0) + (1 - alpha) * current_ratio
+                        FRAUD_RATIO.set(float(new_ratio))
+                    except (TypeError, ValueError) as e:
+                        # If there's any issue with the value, reset it
+                        logger.warning(f"Error updating fraud ratio: {str(e)}")
+                        FRAUD_RATIO.set(1.0 if is_fraud else 0.0)
+                else:
+                    # First observation
+                    FRAUD_RATIO.set(1.0 if is_fraud else 0.0)
+            except Exception as e:
+                # Don't let metrics issues break the API functionality
+                logger.warning(f"Metrics error: {str(e)}")
 
             logger.debug(f"Raw prediction probabilities: {probabilities}")
             logger.debug(
@@ -280,24 +323,37 @@ async def predict(
             logger.error(f"Error during prediction: {str(e)}")
             raise ValueError(f"Prediction failed: {str(e)}")
 
-        # Create response with properly converted types
+        # Create response with properly converted types - ensure all values are standard Python types
         response = PredictionResponse(
             is_fraud=bool(is_fraud),
             fraud_probability=float(probability),
             threshold_used=float(classification_threshold),
             status="success",
             timestamp=pd.Timestamp.now().isoformat(),
-            model_name=model_name,
+            model_name=str(model_name),
         )
 
         # Add feature contribution information if top features is available
         if top_features:
-            # Just include values of the top features with proper type conversion
-            explanation = {
-                feature: convert_numpy_types(data[feature].iloc[0])
-                for feature in top_features[:5]
-            }
-            response.explanation = explanation
+            try:
+                # Just include values of the top features with proper type conversion
+                # and ensure they are Python native types, not MutexValue or numpy types
+                explanation = {}
+                for feature in top_features[:5]:
+                    if feature in data.columns:
+                        # Make sure to convert to native Python types
+                        value = data[feature].iloc[0]
+                        explanation[feature] = float(convert_numpy_types(value))
+                    else:
+                        # If feature not found, provide a safe default
+                        explanation[feature] = 0.0
+                
+                response.explanation = explanation
+            except Exception as e:
+                # Don't let explanation generation break the prediction
+                logger.warning(f"Error generating feature explanation: {str(e)}")
+                # Provide empty explanation in case of error
+                response.explanation = {}
 
         logger.info(
             f"Prediction complete in {prediction_time:.4f}s - Fraud probability: {probability:.4f}, classified as fraud: {is_fraud}"
