@@ -6,7 +6,8 @@ This document outlines the steps taken to make the project production-ready and 
 
 ### Code Quality
 - Fixed bugs in the codebase
-- Updated validation in API to use modern Pydantic v2 syntax
+- Updated validation in API to use modern Pydantic v2 syntax with field aliases to support both uppercase and lowercase field names
+- Implemented proper error handling for case sensitivity and column alignment in the API
 - Removed unused imports
 - Added proper error handling throughout the application
 - Fixed Kaggle import issue in `download_data.py`
@@ -96,10 +97,12 @@ Before deploying to production, verify the following:
 
 - [ ] All tests pass (`pytest tests/`)
 - [ ] Model performance meets business requirements
-- [ ] API performance meets latency requirements
-- [ ] Documentation is up-to-date
+- [ ] API performance meets latency requirements 
+- [ ] API handles both uppercase and lowercase field names correctly
+- [ ] Documentation is up-to-date and consistent with implementation
 - [ ] Logging is properly configured
-- [ ] Error handling is comprehensive
+- [ ] Error handling is comprehensive and provides clear messages
 - [ ] Security measures are in place
 - [ ] Monitoring is configured
 - [ ] Backup and recovery procedures are in place
+- [ ] CI/CD pipeline is correctly configured (if implementing GitHub Actions)

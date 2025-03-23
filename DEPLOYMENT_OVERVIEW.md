@@ -30,9 +30,9 @@ graph TD
   - Prometheus (metrics collection)
   - Grafana (visualization and dashboards)
 
-### 2. CI/CD Pipeline (GitHub Actions)
+### 2. CI/CD Pipeline (Planned GitHub Actions)
 
-Our CI/CD pipeline consists of the following stages:
+Our planned CI/CD pipeline consists of the following stages:
 
 1. **Linting & Code Style Checks**
 
@@ -67,6 +67,8 @@ Our CI/CD pipeline consists of the following stages:
    - Staging deployment (development branch)
    - Production deployment (main branch)
    - Deployment verification
+
+**Note**: The CI/CD pipeline is a reference architecture that should be implemented in your GitHub repository. The workflow file should be created in `.github/workflows/ci-cd.yml` to enable these automated processes.
 
 ### 3. Model Monitoring & Maintenance
 

@@ -52,7 +52,7 @@ This project implements a robust machine learning system that identifies potenti
 
 ### Prerequisites
 
-- Python 3.10+ (tested with 3.13.2)
+- Python 3.10+ (tested with 3.11.10)
 - Docker (optional, for containerized deployment)
 
 ### Installation
@@ -61,7 +61,7 @@ This project implements a robust machine learning system that identifies potenti
 
 ```bash
 git clone <repository-url>
-cd fraud-detection-project
+cd fraud-detection-with-machine-learning
 ```
 
 2. Create and activate a virtual environment:
@@ -110,14 +110,21 @@ DOCKER_TAG=latest
 ```
 
 The application will automatically load the correct environment file based on the `ENV` variable. You can use this approach both for local development and Docker deployments.
-```
+
+````
 
 ### Data Preparation
 
 1. Download the Credit Card Fraud Detection dataset from Kaggle:
 
-   - Visit [Kaggle Credit Card Fraud Detection Dataset](https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud)
-   - Download and place `creditcard.csv` in the `data/raw/` directory
+   - Option 1: Visit [Kaggle Credit Card Fraud Detection Dataset](https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud)
+     and manually download and place `creditcard.csv` in the `data/raw/` directory
+
+   - Option 2: Use the provided script to download data automatically (requires Kaggle API credentials):
+     ```bash
+     # Setup Kaggle API credentials first (see https://github.com/Kaggle/kaggle-api#api-credentials)
+     python src/data/download_data.py
+     ```
 
 2. Explore and preprocess the data:
 
@@ -125,9 +132,12 @@ The application will automatically load the correct environment file based on th
 # Run the first Jupyter notebook for data exploration
 jupyter notebook notebooks/01_data_exploration.ipynb
 
+# Run the second Jupyter notebook for model prototyping
+jupyter notebook notebooks/02_model_prototyping.ipynb
+
 # Run data preprocessing
 python src/data_preprocessing.py
-```
+````
 
 ### Model Training and Evaluation
 
@@ -195,6 +205,7 @@ ENV=production API_PORT=9000 LOG_LEVEL=DEBUG docker-compose up
 5. Access the API at `http://localhost:8000` (or the port you specified)
 
 The Docker setup is designed to:
+
 - Use environment-specific configurations from `.env.{ENV}` files
 - Allow overriding individual variables without rebuilding the image
 - Provide sensible defaults if variables are not defined
@@ -213,12 +224,37 @@ The API provides the following endpoints:
 - `POST /predict`: Submit transaction data for fraud detection
 - `GET /model/info`: Get information about the deployed model
 - `GET /model/threshold`: Get information about the classification threshold
+- `GET /metrics`: Information about the Prometheus metrics endpoint
+
+### Troubleshooting
+
+If you encounter errors when making API requests:
+
+1. **Field name case sensitivity**: The API accepts both uppercase field names (`Time`, `V1`, `Amount`) and lowercase field names (`time`, `v1`, `amount`), but using uppercase is recommended for consistency with the original dataset.
+
+2. **422 Unprocessable Entity errors**: This typically indicates a missing or invalid field. Ensure all required fields are present and have the correct data types.
+
+3. **500 Internal Server errors**: These may occur if there's a column mismatch between your input data and what the model expects. Double-check that all column names match exactly what's expected.
 
 ### Making Predictions
 
-To make a prediction, send a POST request to `/predict` with transaction data:
+To make a prediction, send a POST request to `/predict` with transaction data. The API supports both uppercase and lowercase field names:
 
 ```json
+# Option 1: Using uppercase field names (recommended)
+{
+  "Time": 43567,
+  "V1": -1.35,
+  "V2": 0.42,
+  "V3": 0.96,
+  "V4": -0.38,
+  "V5": 1.24,
+  ... other features ...
+  "V28": 0.02,
+  "Amount": 124.5
+}
+
+# Option 2: Using lowercase field names
 {
   "time": 43567,
   "v1": -1.35,
@@ -278,7 +314,7 @@ pytest tests/test_api.py
 ## Project Structure
 
 ```
-fraud-detection-project/
+fraud-detection-with-machine-learning/
 ├── data/                       # Dataset storage
 │   ├── raw/                    # Raw, unprocessed data
 │   └── processed/              # Processed, ready-to-use data
@@ -287,13 +323,17 @@ fraud-detection-project/
 │   └── 02_model_prototyping.ipynb # Model prototyping and selection
 ├── src/                        # Source code
 │   ├── api.py                  # FastAPI implementation
+│   ├── data/                   # Data handling modules
+│   │   └── download_data.py    # Script to download Kaggle dataset
 │   ├── data_preprocessing.py   # Data preparation pipeline
 │   ├── model_training.py       # Model training and selection
 │   ├── model_evaluation.py     # Model evaluation and metrics
 │   └── utils/                  # Utility functions
 │       └── metrics.py          # Custom metrics
 ├── tests/                      # Unit and integration tests
+│   ├── conftest.py             # Test fixtures and configuration
 │   ├── test_api.py             # API tests
+│   ├── test_api_endpoints.py   # API endpoint specific tests
 │   ├── test_data_preprocessing.py # Data pipeline tests
 │   └── test_model_training.py  # Model training tests
 ├── models/                     # Saved model artifacts
@@ -301,10 +341,19 @@ fraud-detection-project/
 ├── config/                     # Configuration files
 │   └── config.py               # Central configuration
 ├── scripts/                    # Utility scripts
+│   ├── docker-entrypoint.sh    # Docker container entry script
+│   ├── initialize_project.sh   # Setup script for new environments
+│   ├── monitor_model_performance.py # Model monitoring script
 │   └── train_and_evaluate.sh   # Training script
+├── monitoring/                 # Monitoring configuration
+│   ├── grafana/                # Grafana dashboards
+│   └── prometheus.yml          # Prometheus configuration
 ├── requirements.txt            # Python dependencies
 ├── Dockerfile                  # Container configuration
 ├── docker-compose.yml          # Multi-container orchestration
+├── DEPLOYMENT.md               # Deployment guide
+├── DEPLOYMENT_OVERVIEW.md      # Deployment architecture overview
+├── PRODUCTION_CHECKLIST.md     # Production readiness checklist
 └── README.md                   # Project documentation
 ```
 
@@ -333,20 +382,35 @@ The system was trained and evaluated on the Credit Card Fraud Detection dataset 
 
 _Note: Performance metrics are averaged across multiple runs with different random seeds. The business metric represents the fraud detection effectiveness considering the relative costs of false positives and false negatives._
 
-## Future Improvements
+## Features Implemented
+
+- **Advanced Deployment Options**:
+
+  - Docker container deployment
+  - Prometheus/Grafana monitoring setup
+  - Environment-specific configuration system
+  - Health check endpoints
+
+- **Performance Monitoring and Management**:
+
+  - Model performance monitoring script
+  - Drift detection and alerting
+  - Detailed monitoring reports
+  - API performance metrics
+
+- **CI/CD Integrations**:
+  - Automated model validation
+  - Containerized deployment pipeline
+  - Environment configuration control
+  - Testing across multiple environments
+
+## Future Enhancements
 
 - **Advanced Deployment Options**:
 
   - Kubernetes deployment for scalability
   - Model serving with TensorFlow Serving or ONNX Runtime
   - Serverless deployment for cost optimization
-
-- **Performance Monitoring and Management**:
-
-  - Real-time performance monitoring dashboard
-  - Automated retraining based on performance degradation
-  - Concept drift detection with statistical tests
-  - A/B testing framework for model comparison
 
 - **Enhanced Features and Models**:
 
@@ -359,13 +423,21 @@ _Note: Performance metrics are averaged across multiple runs with different rand
   - Streaming data processing with Kafka or Kinesis
   - Integration with alerting and incident management systems
   - Automated model documentation generation
-  - CI/CD pipeline for model deployment
 
-## License
+## 🚀 Skills Demonstrated
 
-MIT
+<div style="background-color: #e9f7ef; padding: 20px; border-left: 5px solid #28a745; border-radius: 5px; margin-bottom: 20px; color: #333333;">
 
-## Acknowledgments
+### Technical Expertise
+- **🤖 Machine Learning**: Built and evaluated multiple advanced models (Logistic Regression, Random Forest, XGBoost, Neural Networks, Ensemble Methods) for fraud detection, achieving >90% F1 score.
+- **📊 Data Engineering**: Implemented sophisticated feature engineering, outlier handling, and dimensionality reduction techniques on financial transaction data.
+- **🔍 Data Analysis & Visualization**: Performed in-depth exploratory analysis with interactive visualizations using Matplotlib, Seaborn, and Plotly.
+- **💻 Software Engineering**: Architected a production-grade REST API with FastAPI, comprehensive error handling, and concurrent processing.
 
-- Credit Card Fraud Detection dataset by the [Machine Learning Group - ULB](https://www.kaggle.com/mlg-ulb)
-- SHAP library for model explanations
+### System Design & Operations
+- **📦 DevOps & MLOps**: Orchestrated containerized deployments with Docker, set up robust monitoring with Prometheus/Grafana, and implemented CI/CD workflows.
+- **🔒 Security & Compliance**: Implemented secure coding practices, data protection mechanisms, and configurable environments for regulatory compliance.
+- **📈 Performance Optimization**: Fine-tuned models with business-specific cost functions and custom thresholds for optimal fraud detection.
+- **🧩 Problem-Solving**: Developed innovative solutions for class imbalance, model interpretability, and real-time prediction serving.
+
+</div>

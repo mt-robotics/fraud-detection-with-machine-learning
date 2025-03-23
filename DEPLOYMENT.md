@@ -13,7 +13,7 @@ This document provides instructions for deploying the Fraud Detection API using 
 
    ```bash
    git clone <repository-url>
-   cd fraud_detection_with_machine_learning
+   cd fraud-detection-with-machine-learning
    ```
 
 2. Create an `.env` file with the following environment variables:
@@ -170,7 +170,13 @@ docker-compose restart fraud-detection-api
 
 ## CI/CD Integration
 
-This project includes GitHub Actions workflows for Continuous Integration and Deployment. See `.github/workflows/ci-cd.yml` for details.
+This project includes a reference architecture for GitHub Actions workflows for Continuous Integration and Deployment. To implement this:
+
+1. Create a `.github/workflows` directory in your repository
+2. Add a `ci-cd.yml` file with appropriate workflow configuration
+3. Configure the necessary secrets in your GitHub repository settings
+
+See DEPLOYMENT_OVERVIEW.md for details on the planned CI/CD pipeline stages.
 
 ## Security Considerations
 
