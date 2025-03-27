@@ -1,0 +1,32 @@
+repos:
+  - repo: local
+    hooks:
+      - id: generate-license-file
+        name: Generate the LICENSE file if it does not exist
+        entry: bash -c 'if [ ! -f LICENSE ]; then python gen_license.py; fi'
+        language: system
+        pass_filenames: false
+        always_run: true  # Ensures it runs even if no files changed
+
+      - id: update-license-year
+        name: Update LICENSE year
+        entry: bash -c 'if [ -f LICENSE ]; then sed -i "" "s/Copyright (c) 2025\(-[0-9]\{4\}\)\?/Copyright (c) 2025-$(date +%Y)/" LICENSE; fi'
+        language: system
+        pass_filenames: false
+
+      - id: check-licenses
+        name: Check licenses
+        entry: python check_licenses.py
+        language: system
+        pass_filenames: false
+
+# `pass_filenames: false` disables passing changed filenames to this hook. Required because:
+# # 1. This hook manages global files (LICENSE/NOTICE.md)
+# # 2. Doesn't need to know which files were modified
+# # 3. Prevents irrelevant filenames from being passed as arguments
+
+# No need to run do anything with this file, git will handle everything automatically on every commit.
+
+# To test this file, run this script in the terminal: `pre-commit run --all-files`
+
+# Ensure that the `gen_license.py` and `check_licenses.py` files are executable
