@@ -53,6 +53,7 @@ data/raw/*.db
 data/raw/*.json
 
 # Models
+# regenerable: python src/model_training.py (after src/data/download_data.py and src/data_preprocessing.py)
 models/*.joblib
 models/*.h5
 models/*.pkl
